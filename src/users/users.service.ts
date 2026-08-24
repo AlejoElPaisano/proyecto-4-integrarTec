@@ -1,10 +1,14 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { BalanceGrantDto } from './dto/balance-grant.dto';
+import { UpdateRoleDto } from './dto/update-role.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 const safeUserSelect = {
@@ -18,6 +22,20 @@ const safeUserSelect = {
 const profileUserSelect = {
   ...safeUserSelect,
   balanceMinutes: true,
+} as const;
+
+const adminUserSelect = {
+  ...profileUserSelect,
+  isActive: true,
+} as const;
+
+const balanceGrantSelect = {
+  id: true,
+  issuerId: true,
+  recipientId: true,
+  amount: true,
+  reason: true,
+  createdAt: true,
 } as const;
 
 @Injectable()
@@ -110,6 +128,13 @@ export class UsersService {
     return user;
   }
 
+  async findAll() {
+    return this.prisma.user.findMany({
+      select: adminUserSelect,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async updateProfile(id: string, dto: UpdateUserDto) {
     const data = dto.name === undefined ? {} : { name: dto.name.trim() };
     try {
@@ -124,5 +149,90 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  async updateRole(id: string, dto: UpdateRoleDto) {
+    try {
+      return await this.prisma.user.update({
+        where: { id },
+        data: { role: dto.role },
+        select: adminUserSelect,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+      throw error;
+    }
+  }
+
+  async updateStatus(id: string, issuerId: string, dto: UpdateStatusDto) {
+    if (!dto.isActive && id === issuerId) {
+      throw new BadRequestException('No podés desactivarte a vos mismo');
+    }
+
+    try {
+      return await this.prisma.user.update({
+        where: { id },
+        data: dto.isActive
+          ? { isActive: true }
+          : { isActive: false, hashedRefreshToken: null },
+        select: adminUserSelect,
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+      throw error;
+    }
+  }
+
+  async grantBalance(
+    recipientId: string,
+    issuerId: string,
+    dto: BalanceGrantDto,
+  ) {
+    if (recipientId === issuerId) {
+      throw new BadRequestException('No podés otorgarte saldo a vos mismo');
+    }
+
+    const reason = dto.reason.trim();
+    if (!reason) {
+      throw new BadRequestException('El motivo no puede estar vacío');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const recipient = await tx.user.findUnique({
+        where: { id: recipientId },
+        select: { id: true, isActive: true },
+      });
+
+      if (!recipient) {
+        throw new NotFoundException('Usuario no encontrado');
+      }
+      if (!recipient.isActive) {
+        throw new BadRequestException(
+          'No se puede otorgar saldo a un usuario inactivo',
+        );
+      }
+
+      const updatedUser = await tx.user.update({
+        where: { id: recipientId },
+        data: { balanceMinutes: { increment: dto.amount } },
+        select: adminUserSelect,
+      });
+
+      const grant = await tx.balanceGrant.create({
+        data: {
+          issuerId,
+          recipientId,
+          amount: dto.amount,
+          reason,
+        },
+        select: balanceGrantSelect,
+      });
+
+      return { user: updatedUser, grant };
+    });
   }
 }

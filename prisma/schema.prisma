@@ -23,7 +23,25 @@ model User {
   hashedRefreshToken String?   @map("hashed_refresh_token")
   isActive           Boolean  @default(true) @map("is_active")
   createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  updatedAt              DateTime        @updatedAt @map("updated_at")
+  issuedBalanceGrants    BalanceGrant[] @relation("BalanceGrantIssuer")
+  receivedBalanceGrants  BalanceGrant[] @relation("BalanceGrantRecipient")
 
   @@map("users")
+}
+
+model BalanceGrant {
+  id          Int      @id @default(autoincrement())
+  issuerId    String   @map("issuer_id") @db.Uuid
+  recipientId String   @map("recipient_id") @db.Uuid
+  amount      Int
+  reason      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  issuer    User @relation("BalanceGrantIssuer", fields: [issuerId], references: [id], onDelete: Restrict)
+  recipient User @relation("BalanceGrantRecipient", fields: [recipientId], references: [id], onDelete: Restrict)
+
+  @@index([issuerId])
+  @@index([recipientId])
+  @@map("balance_grants")
 }
