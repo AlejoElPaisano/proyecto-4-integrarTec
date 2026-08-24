@@ -35,6 +35,8 @@ model User {
   services              Service[]     @relation("ServiceProvider")
   transactionsPayer     Transaction[] @relation("TransactionPayer")
   transactionsEarner    Transaction[] @relation("TransactionEarner")
+  reviewsWritten        Review[]      @relation("ReviewReviewer")
+  reviewsHidden         Review[]      @relation("ReviewHiddenBy")
 
   @@map("users")
 }
@@ -98,10 +100,32 @@ model Transaction {
   fromUser User    @relation("TransactionPayer", fields: [fromUserId], references: [id], onDelete: Restrict)
   toUser   User    @relation("TransactionEarner", fields: [toUserId], references: [id], onDelete: Restrict)
   service  Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  reviews  Review[]
 
   @@index([fromUserId])
   @@index([toUserId])
   @@index([serviceId])
   @@index([status])
   @@map("transactions")
+}
+
+model Review {
+  id            Int       @id @default(autoincrement())
+  transactionId Int       @map("transaction_id")
+  reviewerId    String    @map("reviewer_id") @db.Uuid
+  rating        Int
+  comment       String?
+  isHidden      Boolean   @default(false) @map("is_hidden")
+  hiddenAt      DateTime? @map("hidden_at")
+  hiddenById    String?   @map("hidden_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  reviewer    User        @relation("ReviewReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  hiddenBy    User?       @relation("ReviewHiddenBy", fields: [hiddenById], references: [id], onDelete: Restrict)
+
+  @@unique([transactionId, reviewerId])
+  @@index([reviewerId])
+  @@index([hiddenById])
+  @@map("reviews")
 }
