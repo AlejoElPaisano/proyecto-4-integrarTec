@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "IntegrarTEC Proyecto 4 API",
   "private": true,
+  "packageManager": "pnpm@11.2.2",
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
