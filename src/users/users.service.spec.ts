@@ -21,6 +21,9 @@ describe('UsersService admin operations', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    service: {
+      updateMany: jest.fn(),
+    },
     $transaction: jest.fn(),
   } as unknown as PrismaService;
 
@@ -78,18 +81,46 @@ describe('UsersService admin operations', () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
-  it('clears the refresh token when deactivating another user', async () => {
-    jest.mocked(prisma.user.update).mockResolvedValue({ ...user, isActive: false } as never);
+  it('hides provider services and clears the refresh token atomically on deactivation', async () => {
+    const transaction = {
+      user: { update: jest.fn() },
+      service: { updateMany: jest.fn() },
+    };
+    jest.mocked(transaction.user.update).mockResolvedValue({ ...user, isActive: false } as never);
+    jest.mocked(prisma.$transaction).mockImplementation(async (callback) =>
+      callback(transaction as never),
+    );
     const service = new UsersService(prisma);
 
     await service.updateStatus('recipient-id', 'admin-id', { isActive: false });
 
-    expect(prisma.user.update).toHaveBeenCalledWith(
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'recipient-id' },
         data: { isActive: false, hashedRefreshToken: null },
       }),
     );
+    expect(transaction.service.updateMany).toHaveBeenCalledWith({
+      where: { providerId: 'recipient-id' },
+      data: { isActive: false },
+    });
+  });
+
+  it('reactivates a user without reactivating hidden services', async () => {
+    jest.mocked(prisma.user.update).mockResolvedValue({ ...user, isActive: true } as never);
+    const service = new UsersService(prisma);
+
+    await service.updateStatus('recipient-id', 'admin-id', { isActive: true });
+
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'recipient-id' },
+        data: { isActive: true },
+      }),
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.service.updateMany).not.toHaveBeenCalled();
   });
 
   it('rejects balance grants to an inactive recipient', async () => {

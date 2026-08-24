@@ -172,12 +172,25 @@ export class UsersService {
     }
 
     try {
-      return await this.prisma.user.update({
-        where: { id },
-        data: dto.isActive
-          ? { isActive: true }
-          : { isActive: false, hashedRefreshToken: null },
-        select: adminUserSelect,
+      if (dto.isActive) {
+        return await this.prisma.user.update({
+          where: { id },
+          data: { isActive: true },
+          select: adminUserSelect,
+        });
+      }
+
+      return await this.prisma.$transaction(async (tx) => {
+        const updatedUser = await tx.user.update({
+          where: { id },
+          data: { isActive: false, hashedRefreshToken: null },
+          select: adminUserSelect,
+        });
+        await tx.service.updateMany({
+          where: { providerId: id },
+          data: { isActive: false },
+        });
+        return updatedUser;
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
