@@ -1,0 +1,21 @@
+# Configuración local de opencode — no versionar
+.agents/
+# Local Pi runtime state
+.atl/
+
+# Documentos de trabajo — no versionar
+AGENTS.md
+PRD.md
+
+# Node.js dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Generated Prisma client
+src/generated/
