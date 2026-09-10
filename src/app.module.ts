@@ -1,5 +1,5 @@
-import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { ClassSerializerInterceptor, Module } from '@nestjs/common';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
@@ -36,6 +36,7 @@ import { UsersModule } from './users/users.module';
     HealthModule,
   ],
   providers: [
+    { provide: APP_INTERCEPTOR, useClass: ClassSerializerInterceptor },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

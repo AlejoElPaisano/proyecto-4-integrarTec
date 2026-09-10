@@ -15,6 +15,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../generated/prisma/client';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { CategoryEntity } from './entities/category.entity';
 import { CategoriesService } from './categories.service';
 
 @Controller({ path: 'categories', version: '1' })
@@ -23,23 +24,23 @@ export class CategoriesController {
 
   @Get()
   @Public()
-  findAll() {
-    return this.categoriesService.findAll();
+  async findAll() {
+    return CategoryEntity.fromMany(await this.categoriesService.findAll());
   }
 
   @Post()
   @Roles(Role.ADMIN)
-  create(@Body() dto: CreateCategoryDto) {
-    return this.categoriesService.create(dto);
+  async create(@Body() dto: CreateCategoryDto) {
+    return CategoryEntity.from(await this.categoriesService.create(dto));
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN)
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCategoryDto,
   ) {
-    return this.categoriesService.update(id, dto);
+    return CategoryEntity.from(await this.categoriesService.update(id, dto));
   }
 
   @Delete(':id')

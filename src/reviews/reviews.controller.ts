@@ -14,6 +14,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { Role } from '../generated/prisma/client';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { PrivateReviewEntity } from './entities/private-review.entity';
+import { PublicReviewEntity } from './entities/public-review.entity';
 import { ReviewsService } from './reviews.service';
 
 @Controller({ path: 'reviews', version: '1' })
@@ -21,30 +23,36 @@ export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
   @Get('mine')
-  findMine(@CurrentUser('sub') reviewerId: string) {
-    return this.reviewsService.findMine(reviewerId);
+  async findMine(@CurrentUser('sub') reviewerId: string) {
+    return PrivateReviewEntity.fromMany(
+      await this.reviewsService.findMine(reviewerId),
+    );
   }
 
   @Public()
   @Get('by-user/:userId')
-  findByUser(@Param('userId', ParseUUIDPipe) userId: string) {
-    return this.reviewsService.findByUser(userId);
+  async findByUser(@Param('userId', ParseUUIDPipe) userId: string) {
+    return PublicReviewEntity.fromMany(
+      await this.reviewsService.findByUser(userId),
+    );
   }
 
   @Post()
-  create(
+  async create(
     @Body() dto: CreateReviewDto,
     @CurrentUser('sub') reviewerId: string,
   ) {
-    return this.reviewsService.create(dto, reviewerId);
+    return PrivateReviewEntity.from(
+      await this.reviewsService.create(dto, reviewerId),
+    );
   }
 
   @Roles(Role.ADMIN)
   @Patch(':id/hide')
-  hide(
+  async hide(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() admin: JwtPayload,
   ) {
-    return this.reviewsService.hide(id, admin);
+    return PrivateReviewEntity.from(await this.reviewsService.hide(id, admin));
   }
 }

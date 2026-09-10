@@ -15,6 +15,8 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
   app.enableCors({
     origin: config.getOrThrow<string>('CORS_ORIGIN'),
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   app.setGlobalPrefix('api');
   app.enableVersioning({

@@ -17,6 +17,7 @@ import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { FindServicesQueryDto } from './dto/find-services-query.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
+import { ServiceEntity } from './entities/service.entity';
 import { ServicesService } from './services.service';
 
 @Controller({ path: 'services', version: '1' })
@@ -25,44 +26,44 @@ export class ServicesController {
 
   @Get()
   @Public()
-  findAll(@Query() query: FindServicesQueryDto) {
-    return this.servicesService.findAll(query);
+  async findAll(@Query() query: FindServicesQueryDto) {
+    return ServiceEntity.fromMany(await this.servicesService.findAll(query));
   }
 
   @Get('mine')
-  findMine(@CurrentUser('sub') providerId: string) {
-    return this.servicesService.findMine(providerId);
+  async findMine(@CurrentUser('sub') providerId: string) {
+    return ServiceEntity.fromMany(await this.servicesService.findMine(providerId));
   }
 
   @Get(':id')
   @Public()
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.servicesService.findOne(id);
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return ServiceEntity.from(await this.servicesService.findOne(id));
   }
 
   @Post()
-  create(
+  async create(
     @Body() dto: CreateServiceDto,
     @CurrentUser('sub') providerId: string,
   ) {
-    return this.servicesService.create(dto, providerId);
+    return ServiceEntity.from(await this.servicesService.create(dto, providerId));
   }
 
   @Patch(':id/deactivate')
-  deactivate(
+  async deactivate(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.servicesService.deactivate(id, user);
+    return ServiceEntity.from(await this.servicesService.deactivate(id, user));
   }
 
   @Patch(':id')
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateServiceDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.servicesService.update(id, dto, user);
+    return ServiceEntity.from(await this.servicesService.update(id, dto, user));
   }
 
   @Delete(':id')
